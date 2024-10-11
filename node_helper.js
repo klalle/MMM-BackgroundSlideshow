@@ -237,8 +237,8 @@ module.exports = NodeHelper.create({
       .resize(constraintSize, constraintSize, {
         fit: fitMode,
       })
-      .jpeg({ quality: 80 })
-      .withMetadata();
+      .keepMetadata()
+      .jpeg({quality: 80});
 
     // Streama image data from file to transformation and finally to buffer
     const ext = path.extname(imagePath).toLowerCase();
