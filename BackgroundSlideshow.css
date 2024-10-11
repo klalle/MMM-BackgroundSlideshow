@@ -9,13 +9,27 @@
   width: 100%;
 }
 .MMM-BackgroundSlideshow .image {
+  position: absolute;
   background-repeat: no-repeat;
-  animation-timing-function: linear;
   animation-direction: alternate;
   animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards; /* do not loop animation!*/
+  /* animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1); ease-in-out */
+
 }
 .MMM-BackgroundSlideshow .transition {
-  animation-timing-function: ease-out;
+  position: absolute;
+  top:50%; 
+  left:50%; 
+  transform:translate(-50%, -50%); 
+
+  /* animation-timing-function: ease-out; */
+  animation-timing-function: linear;
+  /* border: 15px solid red; */
+  justify-content: center;
+  align-items: center;
+  display: flex;
 }
 
 @keyframes opacity {
@@ -196,6 +210,7 @@
   border-bottom-right-radius: 20pt;
 }
 
+
 .MMM-BackgroundSlideshow .slideH {
   background-size: cover;
   background-position: left;
@@ -221,17 +236,20 @@
 }
 .MMM-BackgroundSlideshow .zoomIn {
   animation-name: zoomIn;
+  animation-fill-mode: forwards;
   transform: scale(1);
 }
 
 .MMM-BackgroundSlideshow .zoomOut {
   animation-name: zoomOut;
+  animation-fill-mode: forwards;
   transform: scale(1.1);
 }
 
 @keyframes slideH {
   to {
     background-position: right;
+    /* transform: translateX(-100%); */
   }
 }
 

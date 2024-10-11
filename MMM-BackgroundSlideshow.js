@@ -125,10 +125,12 @@ Module.register('MMM-BackgroundSlideshow', {
     } else {
       // convert to lower case and replace any spaces with , to make sure we get an array back
       // even if the user provided space separated values
-      this.config.imageInfo = this.config.imageInfo
-        .toLowerCase()
-        .replace(/\s/gu, ',')
-        .split(',');
+      try{
+        this.config.imageInfo = this.config.imageInfo
+          .toLowerCase()
+          .replace(/\s/gu, ',')
+          .split(',');
+      }catch{}
       // now filter the array to only those that have values
       this.config.imageInfo = this.config.imageInfo.filter((n) => n);
     }
@@ -254,7 +256,7 @@ Module.register('MMM-BackgroundSlideshow', {
       if (!this.playingVideo) {
         this.resume();
       }
-    } else if (notification === 'BACKGROUNDSLIDESHOW_NEXT') {
+    } else if (notification === "BACKGROUNDSLIDESHOW_NEXT") {
       // Change to next image
       this.updateImage();
       if (this.timer && !this.playingVideo) {
@@ -420,6 +422,9 @@ Module.register('MMM-BackgroundSlideshow', {
     }
 
     const image = new Image();
+    image.onerror = (err) => {
+      console.error('Error loading image:', err);
+    };
     image.onload = () => {
       // check if there are more than 2 elements and remove the first one
       if (this.imagesDiv.childNodes.length > 1) {
@@ -456,6 +461,9 @@ Module.register('MMM-BackgroundSlideshow', {
         newDiv.style.display = '';
       }
 
+
+
+
       // Check to see if we need to animate the background
       if (
         this.config.backgroundAnimationEnabled &&
@@ -463,25 +471,49 @@ Module.register('MMM-BackgroundSlideshow', {
       ) {
         const randomNumber = Math.floor(Math.random() * this.config.animations.length);
         const animation = this.config.animations[randomNumber];
+
         imageDiv.style.animationDuration = this.config.backgroundAnimationDuration;
         imageDiv.style.animationDelay = this.config.transitionSpeed;
+        imageDiv.style.animationIterationCount = this.config.backgroundAnimationLoopCount;
 
-        if (animation === 'slide') {
-          // check to see if the width of the picture is larger or the height
+        const {width} = image;
+        const {height} = image;
+
+        const adjustedWidth = width * window.innerHeight / height;
+        const adjustedHeight = height * window.innerWidth / width;
+        const scrollHorizontally = adjustedWidth / window.innerWidth > adjustedHeight / window.innerHeight
+
+        const setupForZoom= () => {
           const {width} = image;
           const {height} = image;
-          const adjustedWidth = width * window.innerHeight / height;
-          const adjustedHeight = height * window.innerWidth / width;
+          imageDiv.style.width = `${width}px`;
+          imageDiv.style.height = `${height}px`;
 
+          //these are set for the slide-animation in css...
+          imageDiv.style.top = 'auto';
+          imageDiv.style.left = 'auto';
+
+          imageDiv.style.transition = `transform ${this.config.backgroundAnimationDuration} ease-in-out`//linear`;
+          imageDiv.style.transform = 'scale(1)'; //start by showing scale 1:1 (zoomed in)
+
+          let scaleFactor
+          if(height - window.innerHeight > width - window.innerWidth){
+            // zoom from portrait
+            scaleFactor = window.innerHeight / height;
+          }else{
+            scaleFactor = window.innerWidth / width;
+          }
+          //start transformation after image is set into place!
+          setTimeout(() => {
+            imageDiv.style.transform = `scale(${scaleFactor})`;
+          }, 100);
+        }
+
+
+        if (animation === 'slide') {
           imageDiv.style.backgroundPosition = '';
-          imageDiv.style.animationIterationCount = this.config.backgroundAnimationLoopCount;
           imageDiv.style.backgroundSize = 'cover';
-
-          if (
-            adjustedWidth / window.innerWidth >
-            adjustedHeight / window.innerHeight
-          ) {
-            // Scrolling horizontally...
+          if ( scrollHorizontally) {
             if (Math.floor(Math.random() * 2)) {
               imageDiv.className += ' slideH';
             } else {
@@ -495,14 +527,59 @@ Module.register('MMM-BackgroundSlideshow', {
               imageDiv.className += ' slideVInv';
             }
           }
+        } else if(animation ===  'zoomToFit') {
+          /**
+           * Starts by fitting the image to fill the screen, then zooms out to reveal the rest of the image
+           * zooming out reveals the background (black)
+           * this assumes that the maxHeight/maxWidth is set correctly!
+           * the images are resized in the node_helper to match the smallest screen dimension to optimize memory usage
+           */
+          imageDiv.className += ' zoomToFit';
+
+          setupForZoom(imageDiv)
+
+        } else if(animation ===  'slideZoom') {
+          /**
+           * Starts by fitting the image to fill the screen right-aligned, then slides to show all the image.
+           * Since using background-position like original slide was really laggy on my rpi4 2GB, i swapped to using requestAnimationFrame
+           * this assumes that the maxHeight/maxWidth is set correctly!
+           * the images are resized in the node_helper to match the smallest screen dimension to optimize memory usage
+           */
+
+          // imageDiv.style.backgroundPosition = '';
+          // imageDiv.style.backgroundSize = 'cover';
+          if(height < width){
+            imageDiv.style.backgroundPosition = '';
+            imageDiv.style.backgroundSize = 'cover';
+            imageDiv.className += ' slideH';
+            // let position = 0;
+            // function animate(){
+            //   position -= 5;
+            //   imageDiv.style.backgroundPosition = position + 'px';
+            //   if(position > (window.innerWidth-width)){ ///2) {
+            //   //   setTimeout(function(){
+            //   //     // Log.log("pos:" + position + " width: " + width + " w-w/2: " + (window.innerWidth-width)/2);
+            //   //     requestAnimationFrame(animate);
+            //   // }, 20);
+            //     requestAnimationFrame(animate);
+            //   }
+            // }
+            // requestAnimationFrame(animate);
+          }else {
+            // imageDiv.className += ` zoomIn`;
+            setupForZoom(imageDiv)
+          }
+
         } else {
           imageDiv.className += ` ${animation}`;
         }
-      }
 
+      }
       EXIF.getData(image, () => {
         if (this.config.showImageInfo) {
           let dateTime = EXIF.getTag(image, 'DateTimeOriginal');
+          Log.log("EXIF date: " + dateTime + " tags!");
+          Log.log("EXIF make: " + EXIF.getTag(image, 'Make') + " tags!");
           // attempt to parse the date if possible
           if (dateTime !== null) {
             try {
@@ -522,16 +599,27 @@ Module.register('MMM-BackgroundSlideshow', {
           // if (lat && lon) {
           //   // Get small map of location
           // }
-          this.updateImageInfo(imageinfo, dateTime);
-        }
+          this.updateImageInfo(imageinfo, dateTime, image.width, image.height);
 
-        if (!this.browserSupportsExifOrientationNatively) {
-          const exifOrientation = EXIF.getTag(image, 'Orientation');
-          imageDiv.style.transform = this.getImageTransformCss(exifOrientation);
+
+          // let allTags = EXIF.getAllTags(image);  // Få alla EXIF-taggar för bilden
+          // Log.log("EXIF contained: " + allTags.length + " tags!");
+          // for (let tag in allTags) {
+          //   if (allTags.hasOwnProperty(tag)) {
+          //     Log.log(tag + ": " + allTags[tag]);  // Logga varje tagg och dess värde
+          //   }
+          // }
+
         }
       });
+      if (!this.browserSupportsExifOrientationNatively) {
+        const exifOrientation = EXIF.getTag(image, 'Orientation');
+        imageDiv.style.transform = this.getImageTransformCss(exifOrientation);
+      }
       transitionDiv.appendChild(imageDiv);
       this.imagesDiv.appendChild(transitionDiv);
+
+
     };
 
     image.src = imageinfo.data;
@@ -597,7 +685,7 @@ Module.register('MMM-BackgroundSlideshow', {
     }
   },
 
-  updateImageInfo (imageinfo, imageDate) {
+  updateImageInfo (imageinfo, imageDate, width, height) {
     const imageProps = [];
     this.config.imageInfo.forEach((prop) => {
       switch (prop) {
@@ -624,7 +712,15 @@ Module.register('MMM-BackgroundSlideshow', {
               }
               break;
             }
+            // push the directory first (separate line)
+            imageProps.push(imageName.substring(0, imageName.lastIndexOf('/')));
+            imageName = imageName.split('/').pop();
           }
+		  // imageName = imageName.replace('/Spara/', ': ');
+		  // imageName = imageName.replace('/Album/', ': ');
+		  // imageName = imageName.replace('/album/', ': ');
+		  // imageName = imageName.replace('/Almanacka/', ': ');
+		  // imageName = imageName.replace('/almanacka/', ': ');
           // Remove file extension from image name.
           if (this.config.imageInfoNoFileExt) {
             imageName = imageName.substring(0, imageName.lastIndexOf('.'));
@@ -634,13 +730,17 @@ Module.register('MMM-BackgroundSlideshow', {
         case 'imagecount':
           imageProps.push(`${imageinfo.index} of ${imageinfo.total}`);
           break;
+        case 'dimensions':
+          imageProps.push(`${width} x ${height}`);
+          break;
         default:
           Log.warn(`${prop
           } is not a valid value for imageInfo.  Please check your configuration`);
       }
     });
 
-    let innerHTML = `<header class="infoDivHeader">${this.translate('PICTURE_INFO')}</header>`;
+
+    let innerHTML = ''; // `<header class="infoDivHeader">${this.translate('PICTURE_INFO')}</header>`;
     imageProps.forEach((val) => {
       innerHTML += `${val}<br/>`;
     });

@@ -209,29 +209,51 @@ module.exports = NodeHelper.create({
     }
     this.getNextImage();
   },
-  resizeImage (input, callback) {
-    Log.log(`resizing image to max: ${this.config.maxWidth}x${this.config.maxHeight}`);
+  async resizeImage(imagePath, callback) {
+    Log.log('resizing image to max: ' + this.config.maxWidth + 'x' + this.config.maxHeight);
+    const { maxHeight: screenHeight, maxWidth: screenWidth } = this.config;
+    const screenIsPortrait = screenHeight >= screenWidth;
+
+    const { width, height, orientation } = await sharp(imagePath).metadata();
+    const flipped = orientation >= 5;
+    const [imageWidth, imageHeight] = flipped ? [height, width] : [width, height];
+    const imageIsPortrait = imageHeight >= imageWidth;
+
+    Log.log('image metadata dimensions: W' + imageWidth + "x H" + imageHeight + " flipped: " + flipped);
+    const screenIsWiderThanImg = (imageHeight/imageWidth)>(screenHeight/screenWidth);
+    const fitMode = screenIsPortrait
+      ? (imageIsPortrait && screenIsWiderThanImg ? sharp.fit.outside : sharp.fit.inside)
+      : (!imageIsPortrait && !screenIsWiderThanImg ? sharp.fit.outside : sharp.fit.inside);
+
+    Log.log("rezise to: " + fitMode.toString());
+
+    const constraintSize = screenIsPortrait
+      ? (imageIsPortrait ? (screenIsWiderThanImg ? screenWidth: screenHeight) : screenHeight)
+      : (!imageIsPortrait ? (!screenIsWiderThanImg ? screenHeight: screenWidth) : screenWidth)
+
+    Log.log("rezise size: " + constraintSize);
     const transformer = sharp()
       .rotate()
-      .resize({
-        width: parseInt(this.config.maxWidth, 10),
-        height: parseInt(this.config.maxHeight, 10),
-        fit: 'inside',
+      .resize(constraintSize, constraintSize, {
+        fit: fitMode,
       })
-      .jpeg({quality: 80});
+      .jpeg({ quality: 80 })
+      .withMetadata();
 
     // Streama image data from file to transformation and finally to buffer
+    const ext = path.extname(imagePath).toLowerCase();
     const outputStream = [];
-
-    FileSystemImageSlideshow.createReadStream(input)
+    FileSystemImageSlideshow.createReadStream(imagePath)
       .pipe(transformer) // Stream to Sharp för att resizea
       .on('data', (chunk) => {
         outputStream.push(chunk); // add chunks in a buffer array
       })
       .on('end', () => {
+        Log.log('resizing done! ');
         const buffer = Buffer.concat(outputStream);
-        callback(`data:image/jpg;base64, ${buffer.toString('base64')}`);
-        Log.log('resizing done!');
+        Log.log(`buffersize: ${parseInt(buffer.length/1024, 10)}kB`);
+
+        callback(`data:image/${ext.slice(1)};base64, ${buffer.toString('base64')}`);
       })
       .on('error', (err) => {
         Log.error('Error resizing image:', err);
@@ -332,8 +354,10 @@ module.exports = NodeHelper.create({
       Log.info('BACKGROUNDSLIDESHOW_PREV_IMAGE');
       this.getPrevImage();
     } else if (notification === 'BACKGROUNDSLIDESHOW_PAUSE') {
+      Log.info('BACKGROUNDSLIDESHOW_PAUSE');
       this.stopTimer();
     } else if (notification === 'BACKGROUNDSLIDESHOW_PLAY') {
+      Log.info('BACKGROUNDSLIDESHOW_PLAY');
       this.startOrRestartTimer();
     }
   }
