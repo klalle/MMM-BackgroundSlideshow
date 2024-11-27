@@ -16,13 +16,12 @@
   animation-timing-function: ease-in-out;
   animation-fill-mode: forwards; /* do not loop animation!*/
   /* animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1); ease-in-out */
-
 }
 .MMM-BackgroundSlideshow .transition {
   position: absolute;
-  top:50%; 
-  left:50%; 
-  transform:translate(-50%, -50%); 
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 
   /* animation-timing-function: ease-out; */
   animation-timing-function: linear;
@@ -209,7 +208,6 @@
   border-width: 0 1pt 1pt 0;
   border-bottom-right-radius: 20pt;
 }
-
 
 .MMM-BackgroundSlideshow .slideH {
   background-size: cover;

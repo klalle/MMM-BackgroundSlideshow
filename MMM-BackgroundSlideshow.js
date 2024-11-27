@@ -125,12 +125,12 @@ Module.register('MMM-BackgroundSlideshow', {
     } else {
       // convert to lower case and replace any spaces with , to make sure we get an array back
       // even if the user provided space separated values
-      try{
+      try {
         this.config.imageInfo = this.config.imageInfo
           .toLowerCase()
           .replace(/\s/gu, ',')
           .split(',');
-      }catch{}
+      } catch {}
       // now filter the array to only those that have values
       this.config.imageInfo = this.config.imageInfo.filter((n) => n);
     }
@@ -184,22 +184,22 @@ Module.register('MMM-BackgroundSlideshow', {
       this.resume();
     }
   },
-  //Setup receiver for global notifications (other modules etc)
+  // Setup receiver for global notifications (other modules etc)
   // Use for example with MMM-Remote-Control API: https://github.com/Jopyth/MMM-Remote-Control/tree/master/API
   // to change image from buttons or curl:
   // curl http://[your ip address]:8080/api/notification/BACKGROUNDSLIDESHOW_PREV or NEXT
   // make sure to set address: "0.0.0.0", and secureEndpoints: false (or setup security according to readme!)
   notificationReceived (notification, payload, sender) {
-	  if (notification === "BACKGROUNDSLIDESHOW_NEXT") {
-      this.sendSocketNotification('BACKGROUNDSLIDESHOW_NEXT_IMAGE')
-    } else if (notification === 'BACKGROUNDSLIDESHOW_PREV'){
-      this.sendSocketNotification('BACKGROUNDSLIDESHOW_PREV_IMAGE')
-    } else if (notification === 'BACKGROUNDSLIDESHOW_PAUSE'){
-      this.sendSocketNotification('BACKGROUNDSLIDESHOW_PAUSE')
+	  if (notification === 'BACKGROUNDSLIDESHOW_NEXT') {
+      this.sendSocketNotification('BACKGROUNDSLIDESHOW_NEXT_IMAGE');
+    } else if (notification === 'BACKGROUNDSLIDESHOW_PREV') {
+      this.sendSocketNotification('BACKGROUNDSLIDESHOW_PREV_IMAGE');
+    } else if (notification === 'BACKGROUNDSLIDESHOW_PAUSE') {
+      this.sendSocketNotification('BACKGROUNDSLIDESHOW_PAUSE');
     } else if (notification === 'BACKGROUNDSLIDESHOW_PLAY') {
-      this.sendSocketNotification('BACKGROUNDSLIDESHOW_PLAY')
+      this.sendSocketNotification('BACKGROUNDSLIDESHOW_PLAY');
     }
-	},
+  },
   // the socket handler from node_helper.js
   socketNotificationReceived (notification, payload) {
     // if an update was received
@@ -256,7 +256,7 @@ Module.register('MMM-BackgroundSlideshow', {
       if (!this.playingVideo) {
         this.resume();
       }
-    } else if (notification === "BACKGROUNDSLIDESHOW_NEXT") {
+    } else if (notification === 'BACKGROUNDSLIDESHOW_NEXT') {
       // Change to next image
       this.updateImage();
       if (this.timer && !this.playingVideo) {
@@ -462,8 +462,6 @@ Module.register('MMM-BackgroundSlideshow', {
       }
 
 
-
-
       // Check to see if we need to animate the background
       if (
         this.config.backgroundAnimationEnabled &&
@@ -481,39 +479,39 @@ Module.register('MMM-BackgroundSlideshow', {
 
         const adjustedWidth = width * window.innerHeight / height;
         const adjustedHeight = height * window.innerWidth / width;
-        const scrollHorizontally = adjustedWidth / window.innerWidth > adjustedHeight / window.innerHeight
+        const scrollHorizontally = adjustedWidth / window.innerWidth > adjustedHeight / window.innerHeight;
 
-        const setupForZoom= () => {
+        const setupForZoom = () => {
           const {width} = image;
           const {height} = image;
           imageDiv.style.width = `${width}px`;
           imageDiv.style.height = `${height}px`;
 
-          //these are set for the slide-animation in css...
+          // these are set for the slide-animation in css...
           imageDiv.style.top = 'auto';
           imageDiv.style.left = 'auto';
 
-          imageDiv.style.transition = `transform ${this.config.backgroundAnimationDuration} ease-in-out`//linear`;
-          imageDiv.style.transform = 'scale(1)'; //start by showing scale 1:1 (zoomed in)
+          imageDiv.style.transition = `transform ${this.config.backgroundAnimationDuration} ease-in-out`;// linear`;
+          imageDiv.style.transform = 'scale(1)'; // start by showing scale 1:1 (zoomed in)
 
-          let scaleFactor
-          if(height - window.innerHeight > width - window.innerWidth){
+          let scaleFactor;
+          if (height - window.innerHeight > width - window.innerWidth) {
             // zoom from portrait
             scaleFactor = window.innerHeight / height;
-          }else{
+          } else {
             scaleFactor = window.innerWidth / width;
           }
-          //start transformation after image is set into place!
+          // start transformation after image is set into place!
           setTimeout(() => {
             imageDiv.style.transform = `scale(${scaleFactor})`;
           }, 100);
-        }
+        };
 
 
         if (animation === 'slide') {
           imageDiv.style.backgroundPosition = '';
           imageDiv.style.backgroundSize = 'cover';
-          if ( scrollHorizontally) {
+          if (scrollHorizontally) {
             if (Math.floor(Math.random() * 2)) {
               imageDiv.className += ' slideH';
             } else {
@@ -527,7 +525,7 @@ Module.register('MMM-BackgroundSlideshow', {
               imageDiv.className += ' slideVInv';
             }
           }
-        } else if(animation ===  'zoomToFit') {
+        } else if (animation === 'zoomToFit') {
           /**
            * Starts by fitting the image to fill the screen, then zooms out to reveal the rest of the image
            * zooming out reveals the background (black)
@@ -536,9 +534,8 @@ Module.register('MMM-BackgroundSlideshow', {
            */
           imageDiv.className += ' zoomToFit';
 
-          setupForZoom(imageDiv)
-
-        } else if(animation ===  'slideZoom') {
+          setupForZoom(imageDiv);
+        } else if (animation === 'slideZoom') {
           /**
            * Starts by fitting the image to fill the screen right-aligned, then slides to show all the image.
            * Since using background-position like original slide was really laggy on my rpi4 2GB, i swapped to using requestAnimationFrame
@@ -548,7 +545,7 @@ Module.register('MMM-BackgroundSlideshow', {
 
           // imageDiv.style.backgroundPosition = '';
           // imageDiv.style.backgroundSize = 'cover';
-          if(height < width){
+          if (height < width) {
             imageDiv.style.backgroundPosition = '';
             imageDiv.style.backgroundSize = 'cover';
             imageDiv.className += ' slideH';
@@ -565,21 +562,19 @@ Module.register('MMM-BackgroundSlideshow', {
             //   }
             // }
             // requestAnimationFrame(animate);
-          }else {
+          } else {
             // imageDiv.className += ` zoomIn`;
-            setupForZoom(imageDiv)
+            setupForZoom(imageDiv);
           }
-
         } else {
           imageDiv.className += ` ${animation}`;
         }
-
       }
       EXIF.getData(image, () => {
         if (this.config.showImageInfo) {
           let dateTime = EXIF.getTag(image, 'DateTimeOriginal');
-          Log.log("EXIF date: " + dateTime + " tags!");
-          Log.log("EXIF make: " + EXIF.getTag(image, 'Make') + " tags!");
+          Log.log(`EXIF date: ${dateTime} tags!`);
+          Log.log(`EXIF make: ${EXIF.getTag(image, 'Make')} tags!`);
           // attempt to parse the date if possible
           if (dateTime !== null) {
             try {
@@ -609,7 +604,6 @@ Module.register('MMM-BackgroundSlideshow', {
           //     Log.log(tag + ": " + allTags[tag]);  // Logga varje tagg och dess värde
           //   }
           // }
-
         }
       });
       if (!this.browserSupportsExifOrientationNatively) {
@@ -618,8 +612,6 @@ Module.register('MMM-BackgroundSlideshow', {
       }
       transitionDiv.appendChild(imageDiv);
       this.imagesDiv.appendChild(transitionDiv);
-
-
     };
 
     image.src = imageinfo.data;

@@ -105,24 +105,23 @@ module.exports = NodeHelper.create({
       .toLowerCase();
     return this.validImageFileExtensions.has(fileExtension);
   },
-  excludedFiles (currentDir){
+  excludedFiles (currentDir) {
     try {
-	  const excludedFile = FileSystemImageSlideshow.readFileSync(currentDir + '/excludeImages.txt', 'utf8');
-	  const listOfExcludedFiles = excludedFile.split(/\r?\n/)
-	  Log.info(`found excluded images list: in dir: ${currentDir} containing: ${listOfExcludedFiles.length} files`)
+	  const excludedFile = FileSystemImageSlideshow.readFileSync(`${currentDir}/excludeImages.txt`, 'utf8');
+	  const listOfExcludedFiles = excludedFile.split(/\r?\n/u);
+	  Log.info(`found excluded images list: in dir: ${currentDir} containing: ${listOfExcludedFiles.length} files`);
 	  return listOfExcludedFiles;
     } catch (err) {
-	  //no excludeImages.txt in current folder
+	  // no excludeImages.txt in current folder
 	  return [];
     }
   },
-  isExcluded (filename, excludedImagesList){
-	  if(excludedImagesList.includes(filename.replace(/\.[a-zA-Z]{3,4}$/, ""))){
-		  Log.info(`${filename} is excluded in excludedImages.txt!`)
-		  return true
-	  }else{
-		  return false
+  isExcluded (filename, excludedImagesList) {
+	  if (excludedImagesList.includes(filename.replace(/\.[a-zA-Z]{3,4}$/u, ''))) {
+		  Log.info(`${filename} is excluded in excludedImages.txt!`);
+		  return true;
 	  }
+		  return false;
   },
   // gathers the image list
   gatherImageList (config, sendNotification) {
@@ -134,7 +133,7 @@ module.exports = NodeHelper.create({
     // create an empty main image list
     this.imageList = [];
     for (let i = 0; i < config.imagePaths.length; i++) {
-	  const excludedImagesList = this.excludedFiles(config.imagePaths[i])
+	  const excludedImagesList = this.excludedFiles(config.imagePaths[i]);
       this.getFiles(config.imagePaths[i], this.imageList, excludedImagesList, config);
     }
 
@@ -228,29 +227,43 @@ module.exports = NodeHelper.create({
     }
     this.getNextImage();
   },
-  async resizeImage(imagePath, callback) {
-    Log.log('resizing image to max: ' + this.config.maxWidth + 'x' + this.config.maxHeight);
-    const { maxHeight: screenHeight, maxWidth: screenWidth } = this.config;
+  async resizeImage (imagePath, callback) {
+    Log.log(`resizing image to max: ${this.config.maxWidth}x${this.config.maxHeight}`);
+    const {maxHeight: screenHeight, maxWidth: screenWidth} = this.config;
     const screenIsPortrait = screenHeight >= screenWidth;
 
-    const { width, height, orientation } = await sharp(imagePath).metadata();
+    const {width, height, orientation} = await sharp(imagePath).metadata();
     const flipped = orientation >= 5;
-    const [imageWidth, imageHeight] = flipped ? [height, width] : [width, height];
+    const [imageWidth, imageHeight] = flipped
+      ? [height, width]
+      : [width, height];
     const imageIsPortrait = imageHeight >= imageWidth;
 
-    Log.log('image metadata dimensions: W' + imageWidth + "x H" + imageHeight + " flipped: " + flipped);
-    const screenIsWiderThanImg = (imageHeight/imageWidth)>(screenHeight/screenWidth);
+    Log.log(`image metadata dimensions: W${imageWidth}x H${imageHeight} flipped: ${flipped}`);
+    const screenIsWiderThanImg = imageHeight / imageWidth > screenHeight / screenWidth;
     const fitMode = screenIsPortrait
-      ? (imageIsPortrait && screenIsWiderThanImg ? sharp.fit.outside : sharp.fit.inside)
-      : (!imageIsPortrait && !screenIsWiderThanImg ? sharp.fit.outside : sharp.fit.inside);
+      ? imageIsPortrait && screenIsWiderThanImg
+        ? sharp.fit.outside
+        : sharp.fit.inside
+      : !imageIsPortrait && !screenIsWiderThanImg
+        ? sharp.fit.outside
+        : sharp.fit.inside;
 
-    Log.log("rezise to: " + fitMode.toString());
+    Log.log(`rezise to: ${fitMode.toString()}`);
 
     const constraintSize = screenIsPortrait
-      ? (imageIsPortrait ? (screenIsWiderThanImg ? screenWidth: screenHeight) : screenHeight)
-      : (!imageIsPortrait ? (!screenIsWiderThanImg ? screenHeight: screenWidth) : screenWidth)
+      ? imageIsPortrait
+        ? screenIsWiderThanImg
+          ? screenWidth
+          : screenHeight
+        : screenHeight
+      : !imageIsPortrait
+        ? !screenIsWiderThanImg
+          ? screenHeight
+          : screenWidth
+        : screenWidth;
 
-    Log.log("rezise size: " + constraintSize);
+    Log.log(`rezise size: ${constraintSize}`);
     const transformer = sharp()
       .rotate()
       .resize(constraintSize, constraintSize, {
@@ -270,7 +283,7 @@ module.exports = NodeHelper.create({
       .on('end', () => {
         Log.log('resizing done! ');
         const buffer = Buffer.concat(outputStream);
-        Log.log(`buffersize: ${parseInt(buffer.length/1024, 10)}kB`);
+        Log.log(`buffersize: ${parseInt(buffer.length / 1024, 10)}kB`);
 
         callback(`data:image/${ext.slice(1)};base64, ${buffer.toString('base64')}`);
       })
@@ -319,7 +332,7 @@ module.exports = NodeHelper.create({
         this.getFiles(currentItem, imageList, this.excludedFiles(currentItem), config);
       } else if (stats.isFile()) {
         const isValidImageFileExtension = this.checkValidImageFileExtension(currentItem);
-		const isExcluded = this.isExcluded(contents[i], excludedImagesList)
+        const isExcluded = this.isExcluded(contents[i], excludedImagesList);
         if (isValidImageFileExtension && !isExcluded) {
           imageList.push({
             path: currentItem,
