@@ -22,7 +22,7 @@ Module.register('MMM-BackgroundSlideshow', {
     slideshowSpeed: 10 * 1000,
     // if true randomize image order, otherwise use sortImagesBy and sortImagesDescending
     randomizeImageOrder: false,
-	//keeps track of shown images to make sure you have seen them all before an image is shown twice.
+    // keeps track of shown images to make sure you have seen them all before an image is shown twice.
     showAllImagesBeforeRestart: false,
     // how to sort images: name, random, created, modified
     sortImagesBy: 'created',
@@ -411,6 +411,7 @@ Module.register('MMM-BackgroundSlideshow', {
     div.appendChild(inner);
     wrapper.appendChild(div);
   },
+  // eslint-disable-next-line max-lines-per-function
   displayImage (imageinfo) {
     const mwLc = imageinfo.path.toLowerCase();
     if (mwLc.endsWith('.mp4') || mwLc.endsWith('.m4v')) {
@@ -425,8 +426,9 @@ Module.register('MMM-BackgroundSlideshow', {
 
     const image = new Image();
     image.onerror = (err) => {
-      console.error('Error loading image:', err);
+      Log.error('Error loading image:', err);
     };
+	  // eslint-disable-next-line max-lines-per-function
     image.onload = () => {
       // check if there are more than 2 elements and remove the first one
       if (this.imagesDiv.childNodes.length > 1) {
@@ -496,7 +498,7 @@ Module.register('MMM-BackgroundSlideshow', {
           imageDiv.style.transition = `transform ${this.config.backgroundAnimationDuration} ease-in-out`;// linear`;
           imageDiv.style.transform = 'scale(1)'; // start by showing scale 1:1 (zoomed in)
 
-          let scaleFactor;
+          let scaleFactor = 1.0;
           if (height - window.innerHeight > width - window.innerWidth) {
             // zoom from portrait
             scaleFactor = window.innerHeight / height;
