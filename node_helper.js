@@ -163,19 +163,19 @@ module.exports = NodeHelper.create({
     }
     // create an empty main image list
     this.imageList = [];
-	if(config.showAllImagesBeforeRestart){
-		this.alreadyShownSet = this.readEntireShownFile()
-	}
+    if (config.showAllImagesBeforeRestart) {
+      this.alreadyShownSet = this.readEntireShownFile();
+    }
     for (let i = 0; i < config.imagePaths.length; i++) {
 	  const excludedImagesList = this.excludedFiles(config.imagePaths[i]);
       this.getFiles(config.imagePaths[i], this.imageList, excludedImagesList, config);
     }
-	const imageListToUse = config.showAllImagesBeforeRestart
-	  ? this.imageList.filter(image => !this.alreadyShownSet.has(image.path))
-		: this.imageList;
+    const imageListToUse = config.showAllImagesBeforeRestart
+	  ? this.imageList.filter((image) => !this.alreadyShownSet.has(image.path))
+      : this.imageList;
 
-	Log.info(`skipped ${this.imageList.length - imageListToUse.length} files since allready seen!`)
-	this.imageList = config.randomizeImageOrder
+    Log.info(`skipped ${this.imageList.length - imageListToUse.length} files since allready seen!`);
+    this.imageList = config.randomizeImageOrder
 	  ? this.shuffleArray(imageListToUse)
 	  : this.sortImageList(
 		  imageListToUse,
@@ -204,8 +204,8 @@ module.exports = NodeHelper.create({
   getNextImage () {
     if (!this.imageList.length || this.index >= this.imageList.length) {
       // if there are no images or all the images have been displayed, try loading the images again
-      if(this.config.showAllImagesBeforeRestart){
-        this.resetShownImagesFile()
+      if (this.config.showAllImagesBeforeRestart) {
+        this.resetShownImagesFile();
       }
       this.gatherImageList(this.config);
     }
@@ -237,9 +237,9 @@ module.exports = NodeHelper.create({
 
     // (re)set the update timer
     this.startOrRestartTimer();
-  	if(this.config.showAllImagesBeforeRestart) {
-	  this.addImageToShown(image.path)
-	}
+  	if (this.config.showAllImagesBeforeRestart) {
+	  this.addImageToShown(image.path);
+    }
   },
 
   // stop timer if it's running
@@ -271,30 +271,65 @@ module.exports = NodeHelper.create({
     }
     this.getNextImage();
   },
-  resizeImage (input, callback) {
+  async resizeImage (imagePath, callback) {
     Log.log(`resizing image to max: ${this.config.maxWidth}x${this.config.maxHeight}`);
+    const {maxHeight: screenHeight, maxWidth: screenWidth} = this.config;
+    const screenIsPortrait = screenHeight >= screenWidth;
+
+    const {width, height, orientation} = await sharp(imagePath).metadata();
+    const flipped = orientation >= 5;
+    const [imageWidth, imageHeight] = flipped
+      ? [height, width]
+      : [width, height];
+    const imageIsPortrait = imageHeight >= imageWidth;
+
+    Log.log(`image metadata dimensions: W${imageWidth}x H${imageHeight} flipped: ${flipped}`);
+    const screenIsWiderThanImg = imageHeight / imageWidth > screenHeight / screenWidth;
+    const fitMode = screenIsPortrait
+      ? imageIsPortrait && screenIsWiderThanImg
+        ? sharp.fit.outside
+        : sharp.fit.inside
+      : !imageIsPortrait && !screenIsWiderThanImg
+        ? sharp.fit.outside
+        : sharp.fit.inside;
+
+    Log.log(`rezise to: ${fitMode.toString()}`);
+
+    const constraintSize = screenIsPortrait
+      ? imageIsPortrait
+        ? screenIsWiderThanImg
+          ? screenWidth
+          : screenHeight
+        : screenHeight
+      : !imageIsPortrait
+        ? !screenIsWiderThanImg
+          ? screenHeight
+          : screenWidth
+        : screenWidth;
+
+    Log.log(`rezise size: ${constraintSize}`);
     const transformer = sharp()
       .rotate()
-      .resize({
-        width: parseInt(this.config.maxWidth, 10),
-        height: parseInt(this.config.maxHeight, 10),
-        fit: 'inside',
+      .resize(constraintSize, constraintSize, {
+        fit: fitMode,
       })
       .keepMetadata()
       .jpeg({quality: 80});
 
     // Streama image data from file to transformation and finally to buffer
+    const ext = path.extname(imagePath).toLowerCase();
     const outputStream = [];
-
-    FileSystemImageSlideshow.createReadStream(input)
+    FileSystemImageSlideshow.createReadStream(imagePath)
       .pipe(transformer) // Stream to Sharp för att resizea
       .on('data', (chunk) => {
         outputStream.push(chunk); // add chunks in a buffer array
       })
       .on('end', () => {
+        Log.log('resizing done! ');
         const buffer = Buffer.concat(outputStream);
-        callback(`data:image/jpg;base64, ${buffer.toString('base64')}`);
-        Log.log('resizing done!');
+        Log.log(`buffersize: ${parseInt(buffer.length / 1024, 10)}kB`);
+
+        callback(`data:image/${ext.slice(1)};base64, ${buffer.toString('base64')}`);
       })
       .on('error', (err) => {
         Log.error('Error resizing image:', err);
@@ -395,8 +430,10 @@ module.exports = NodeHelper.create({
       Log.info('BACKGROUNDSLIDESHOW_PREV_IMAGE');
       this.getPrevImage();
     } else if (notification === 'BACKGROUNDSLIDESHOW_PAUSE') {
+      Log.info('BACKGROUNDSLIDESHOW_PAUSE');
       this.stopTimer();
     } else if (notification === 'BACKGROUNDSLIDESHOW_PLAY') {
+      Log.info('BACKGROUNDSLIDESHOW_PLAY');
       this.startOrRestartTimer();
     }
   }
