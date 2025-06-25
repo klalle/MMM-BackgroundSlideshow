@@ -47,6 +47,63 @@ module.exports = NodeHelper.create({
     return array;
   },
 
+  shuffleImagesLoopFolders(filePaths) {
+    Log.log('shuffleImagesLoopFolders = true!');
+    // Log.log(`filePaths: \n${filePaths.map(img => img.path + "\n")}`);
+    const groupedByFolder = new Map();
+    for (const imgobject of filePaths) {
+      const parts = imgobject.path.split('/');
+      const folder = parts[parts.length - 2]; //or use the config.imagePaths?
+      if (!groupedByFolder.has(folder)) {
+        groupedByFolder.set(folder, []);
+      }
+      groupedByFolder.get(folder).push(imgobject);
+    }
+    //find subfolder with max amount of images:
+    let maxLength = 0;
+    for (const imageArray of groupedByFolder.values()) {
+      maxLength = Math.max(maxLength, imageArray.length);
+    }
+
+    //shuffle all subfolders individually
+    for (const folderPaths of groupedByFolder.values()) {
+      this.shuffleArray(folderPaths);
+    }
+
+    const result = [];
+    const folderKeys = Array.from(groupedByFolder.keys());
+    //map of pointers to keep track of image index for subfolders
+    const pointers = new Map(folderKeys.map(key => [key, 0]));
+    let lastPickedFolder = null;
+
+    for (let i = 0; i < maxLength; i++) {
+      //re-shuffle subfolders so that the order is not the same
+      let pickableFolders = this.shuffleArray(folderKeys);
+      if(pickableFolders[0] === lastPickedFolder){
+        //simply swap first/last if lastpickedfolder happened to be first
+        [pickableFolders[0], pickableFolders[pickableFolders.length-1]] =
+          [pickableFolders[pickableFolders.length-1], pickableFolders[0]]
+      }
+      for (const nextFolder of pickableFolders) {
+        let imagePointer = pointers.get(nextFolder);
+        const image = groupedByFolder.get(nextFolder)[imagePointer];
+
+        result.push(image);
+
+        if(imagePointer + 1 === groupedByFolder.get(nextFolder).length){
+          //current folder has run out of images, restart this folder
+          this.shuffleArray(groupedByFolder.get(nextFolder));
+          pointers.set(nextFolder, 0);
+        }else{
+          pointers.set(nextFolder, imagePointer + 1);
+        }
+        lastPickedFolder = nextFolder; //we dont want the same folder in a row
+      }
+    }
+    return result;
+  },
+
+
   // sort by filename attribute
   sortByFilename (a, b) {
     const aL = a.path.toLowerCase();
@@ -167,7 +224,7 @@ module.exports = NodeHelper.create({
       this.alreadyShownSet = this.readEntireShownFile();
     }
     for (let i = 0; i < config.imagePaths.length; i++) {
-	  const excludedImagesList = this.excludedFiles(config.imagePaths[i]);
+	    const excludedImagesList = this.excludedFiles(config.imagePaths[i]);
       this.getFiles(config.imagePaths[i], this.imageList, excludedImagesList, config);
     }
     const imageListToUse = config.showAllImagesBeforeRestart
@@ -175,14 +232,23 @@ module.exports = NodeHelper.create({
       : this.imageList;
 
     Log.info(`skipped ${this.imageList.length - imageListToUse.length} files since allready seen!`);
-    this.imageList = config.randomizeImageOrder
-	  ? this.shuffleArray(imageListToUse)
-	  : this.sortImageList(
-		  imageListToUse,
-		  config.sortImagesBy,
-		  config.sortImagesDescending
-	  );
+    let finalImageList;
+
+    if (config.randomizeImagesLoopFolders) {
+      finalImageList = this.shuffleImagesLoopFolders(imageListToUse);
+    } else if (config.randomizeImageOrder) {
+      finalImageList = this.shuffleArray(imageListToUse);
+    } else {
+      finalImageList = this.sortImageList(
+        imageListToUse,
+        config.sortImagesBy,
+        config.sortImagesDescending
+      );
+    }
+
+    this.imageList = finalImageList;
     Log.info(`BACKGROUNDSLIDESHOW: ${this.imageList.length} files found`);
+    // Log.log(`BACKGROUNDSLIDESHOW: ${this.imageList.map(img => img.path + "\n")}`);
     this.index = 0;
 
     // let other modules know about slideshow images
