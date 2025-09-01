@@ -47,57 +47,57 @@ module.exports = NodeHelper.create({
     return array;
   },
 
-  shuffleImagesLoopFolders(filePaths) {
+  shuffleImagesLoopFolders (filePaths) {
     Log.log('shuffleImagesLoopFolders = true!');
     // Log.log(`filePaths: \n${filePaths.map(img => img.path + "\n")}`);
     const groupedByFolder = new Map();
     for (const imgobject of filePaths) {
       const parts = imgobject.path.split('/');
-      const folder = parts[parts.length - 2]; //or use the config.imagePaths?
+      const folder = parts[parts.length - 2]; // or use the config.imagePaths?
       if (!groupedByFolder.has(folder)) {
         groupedByFolder.set(folder, []);
       }
       groupedByFolder.get(folder).push(imgobject);
     }
-    //find subfolder with max amount of images:
+    // find subfolder with max amount of images:
     let maxLength = 0;
     for (const imageArray of groupedByFolder.values()) {
       maxLength = Math.max(maxLength, imageArray.length);
     }
 
-    //shuffle all subfolders individually
+    // shuffle all subfolders individually
     for (const folderPaths of groupedByFolder.values()) {
       this.shuffleArray(folderPaths);
     }
 
     const result = [];
     const folderKeys = Array.from(groupedByFolder.keys());
-    //map of pointers to keep track of image index for subfolders
-    const pointers = new Map(folderKeys.map(key => [key, 0]));
+    // map of pointers to keep track of image index for subfolders
+    const pointers = new Map(folderKeys.map((key) => [key, 0]));
     let lastPickedFolder = null;
 
     for (let i = 0; i < maxLength; i++) {
-      //re-shuffle subfolders so that the order is not the same
-      let pickableFolders = this.shuffleArray(folderKeys);
-      if(pickableFolders[0] === lastPickedFolder){
-        //simply swap first/last if lastpickedfolder happened to be first
-        [pickableFolders[0], pickableFolders[pickableFolders.length-1]] =
-          [pickableFolders[pickableFolders.length-1], pickableFolders[0]]
+      // re-shuffle subfolders so that the order is not the same
+      const pickableFolders = this.shuffleArray(folderKeys);
+      if (pickableFolders[0] === lastPickedFolder) {
+        // simply swap first/last if lastpickedfolder happened to be first
+        [pickableFolders[0], pickableFolders[pickableFolders.length - 1]] =
+          [pickableFolders[pickableFolders.length - 1], pickableFolders[0]];
       }
       for (const nextFolder of pickableFolders) {
-        let imagePointer = pointers.get(nextFolder);
+        const imagePointer = pointers.get(nextFolder);
         const image = groupedByFolder.get(nextFolder)[imagePointer];
 
         result.push(image);
 
-        if(imagePointer + 1 === groupedByFolder.get(nextFolder).length){
-          //current folder has run out of images, restart this folder
+        if (imagePointer + 1 === groupedByFolder.get(nextFolder).length) {
+          // current folder has run out of images, restart this folder
           this.shuffleArray(groupedByFolder.get(nextFolder));
           pointers.set(nextFolder, 0);
-        }else{
+        } else {
           pointers.set(nextFolder, imagePointer + 1);
         }
-        lastPickedFolder = nextFolder; //we dont want the same folder in a row
+        lastPickedFolder = nextFolder; // we dont want the same folder in a row
       }
     }
     return result;
@@ -182,29 +182,29 @@ module.exports = NodeHelper.create({
 	  }
 		  return false;
   },
-	readEntireShownFile ( ) {
+  readEntireShownFile () {
 	  const filepath = 'modules/MMM-BackgroundSlideshow/filesShownTracker.txt';
-		try {
-			const filesShown = fs.readFileSync(filepath, 'utf8');
-			const listOfShownFiles = filesShown.split(/\r?\n/u).filter(line => line.trim() !== '');
-			Log.info(`found filesShownTracker: in path: ${filepath} containing: ${listOfShownFiles.length} files`)
-			return new Set(listOfShownFiles);
-		} catch (err) {
-			Log.info(`error reading filesShownTracker: in path: ${filepath}`)
-			//no excludeImages.txt in current folder
-			return new Set();
-		}
-	},
-	addImageToShown ( imgPath ) {
-	  self.alreadyShownSet.add(imgPath)
+    try {
+      const filesShown = fs.readFileSync(filepath, 'utf8');
+      const listOfShownFiles = filesShown.split(/\r?\n/u).filter((line) => line.trim() !== '');
+      Log.info(`found filesShownTracker: in path: ${filepath} containing: ${listOfShownFiles.length} files`);
+      return new Set(listOfShownFiles);
+    } catch (err) {
+      Log.info(`error reading filesShownTracker: in path: ${filepath}`);
+      // no excludeImages.txt in current folder
+      return new Set();
+    }
+  },
+  addImageToShown (imgPath) {
+	  self.alreadyShownSet.add(imgPath);
 	  const filePath = 'modules/MMM-BackgroundSlideshow/filesShownTracker.txt';
-		if (!fs.existsSync(filePath)) {
-			fs.writeFileSync(filePath, imgPath + '\n', { flag: 'wx' });
-		} else {
-			fs.appendFileSync(filePath, imgPath + '\n');
-		}
-	},
-  resetShownImagesFile(){
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, `${imgPath}\n`, {flag: 'wx'});
+    } else {
+      fs.appendFileSync(filePath, `${imgPath}\n`);
+    }
+  },
+  resetShownImagesFile () {
     try {
       fs.writeFileSync('modules/MMM-BackgroundSlideshow/filesShownTracker.txt', '', 'utf8');
     } catch (err) {
