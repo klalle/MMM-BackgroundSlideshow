@@ -13,7 +13,7 @@
 
 // call in the required classes
 const NodeHelper = require('node_helper');
-const FileSystemImageSlideshow = require('fs');
+const fs = require('fs');
 const os = require('os');
 const {exec} = require('child_process');
 const express = require('express');
@@ -166,7 +166,7 @@ module.exports = NodeHelper.create({
   },
   excludedFiles (currentDir) {
     try {
-	  const excludedFile = FileSystemImageSlideshow.readFileSync(`${currentDir}/excludeImages.txt`, 'utf8');
+	  const excludedFile = fs.readFileSync(`${currentDir}/excludeImages.txt`, 'utf8');
 	  const listOfExcludedFiles = excludedFile.split(/\r?\n/u);
 	  Log.info(`found excluded images list: in dir: ${currentDir} containing: ${listOfExcludedFiles.length} files`);
 	  return listOfExcludedFiles;
@@ -185,7 +185,7 @@ module.exports = NodeHelper.create({
 	readEntireShownFile ( ) {
 	  const filepath = 'modules/MMM-BackgroundSlideshow/filesShownTracker.txt';
 		try {
-			const filesShown = FileSystemImageSlideshow.readFileSync(filepath, 'utf8');
+			const filesShown = fs.readFileSync(filepath, 'utf8');
 			const listOfShownFiles = filesShown.split(/\r?\n/u).filter(line => line.trim() !== '');
 			Log.info(`found filesShownTracker: in path: ${filepath} containing: ${listOfShownFiles.length} files`)
 			return new Set(listOfShownFiles);
@@ -198,15 +198,15 @@ module.exports = NodeHelper.create({
 	addImageToShown ( imgPath ) {
 	  self.alreadyShownSet.add(imgPath)
 	  const filePath = 'modules/MMM-BackgroundSlideshow/filesShownTracker.txt';
-		if (!FileSystemImageSlideshow.existsSync(filePath)) {
-			FileSystemImageSlideshow.writeFileSync(filePath, imgPath + '\n', { flag: 'wx' });
+		if (!fs.existsSync(filePath)) {
+			fs.writeFileSync(filePath, imgPath + '\n', { flag: 'wx' });
 		} else {
-			FileSystemImageSlideshow.appendFileSync(filePath, imgPath + '\n');
+			fs.appendFileSync(filePath, imgPath + '\n');
 		}
 	},
   resetShownImagesFile(){
     try {
-      FileSystemImageSlideshow.writeFileSync('modules/MMM-BackgroundSlideshow/filesShownTracker.txt', '', 'utf8');
+      fs.writeFileSync('modules/MMM-BackgroundSlideshow/filesShownTracker.txt', '', 'utf8');
     } catch (err) {
       console.error('Error writing empty filesShownTracker.txt', err);
     }
@@ -385,7 +385,7 @@ module.exports = NodeHelper.create({
     // Streama image data from file to transformation and finally to buffer
     const ext = path.extname(imagePath).toLowerCase();
     const outputStream = [];
-    FileSystemImageSlideshow.createReadStream(imagePath)
+    fs.createReadStream(imagePath)
       .pipe(transformer) // Stream to Sharp för att resizea
       .on('data', (chunk) => {
         outputStream.push(chunk); // add chunks in a buffer array
@@ -409,10 +409,10 @@ module.exports = NodeHelper.create({
       this.resizeImage(filepath, callback);
     } else {
       Log.log('resizeImages: false');
-      // const data = FileSystemImageSlideshow.readFileSync(filepath, { encoding: 'base64' });
+      // const data = fs.readFileSync(filepath, { encoding: 'base64' });
       // callback(`data:image/${ext};base64, ${data}`);
       const chunks = [];
-      FileSystemImageSlideshow.createReadStream(filepath)
+      fs.createReadStream(filepath)
         .on('data', (chunk) => {
           chunks.push(chunk); // Samla chunkar av data
         })
@@ -430,14 +430,14 @@ module.exports = NodeHelper.create({
   },
 
   getFiles (imagePath, imageList, excludedImagesList, config) {
-    const contents = FileSystemImageSlideshow.readdirSync(imagePath);
+    const contents = fs.readdirSync(imagePath);
     Log.info(`BACKGROUNDSLIDESHOW: Reading directory "${imagePath}" for images, found ${contents.length} files and directories`);
     for (let i = 0; i < contents.length; i++) {
       if (this.excludePaths.has(contents[i])) {
         continue;
       }
       const currentItem = `${imagePath}/${contents[i]}`;
-      const stats = FileSystemImageSlideshow.lstatSync(currentItem);
+      const stats = fs.lstatSync(currentItem);
       if (stats.isDirectory() && config.recursiveSubDirectories) {
         this.getFiles(currentItem, imageList, this.excludedFiles(currentItem), config);
       } else if (stats.isFile()) {
