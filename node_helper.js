@@ -35,7 +35,50 @@ module.exports = NodeHelper.create({
     this.index = 0;
     this.timer = null;
     self = this;
+
+    Log.log(`[${this.name}] Sätter upp cache-sökväg och express-route.`);
+
+    this.cachePath = path.join(__dirname, 'cache');
+
+    if (fs.existsSync(this.cachePath)) {
+      // Om mappen finns, rensa den från gamla bilder från förra körningen
+      Log.log(`[${this.name}] Cache-mapp finns. Rensar den från gamla filer.`);
+      this.cleanupCache();
+    } else {
+      fs.mkdirSync(this.cachePath);
+      Log.log(`[${this.name}] Skapade cache-mapp: ${this.cachePath}`);
+
+    }
+
+    // Använd MagicMirrors express-instans för att servera filer från din cache-mapp.
+    // URL:en blir /MMM-BackgroundSlideshow/cache/<filnamn>
+    this.expressApp.use(`/${this.name}/cache`, express.static(this.cachePath));
+
+    Log.log(`[${this.name}] Serverar nu filer från cachen på /${this.name}/cache`);
   },
+  cleanupCache () {
+    fs.readdir(this.cachePath, (err, files) => {
+      if (err) {
+        Log.error(`[${this.name}] Fel vid läsning av cache-mapp:`, err);
+        return;
+      }
+
+      if (files.length === 0) {
+        Log.log(`[${this.name}] Cache-mappen var redan tom.`);
+        return;
+      }
+
+      for (const file of files) {
+        fs.unlink(path.join(this.cachePath, file), (error) => {
+          if (error) {
+            Log.error(`[${this.name}] Fel vid radering av cache-fil ${file}:`, error);
+          }
+        });
+      }
+      Log.log(`[${this.name}] Rensade ${files.length} fil(er) från cachen.`);
+    });
+  },
+
 
   // shuffles an array at random and returns it
   shuffleArray (array) {
@@ -287,20 +330,22 @@ module.exports = NodeHelper.create({
     const image = this.imageList[this.index++];
     Log.info(`BACKGROUNDSLIDESHOW: reading path "${image.path}"`);
     self = this;
-    this.readFile(image.path, (data) => {
+    this.readFile(image.path, (imageUrl) => {
+      // 'imageUrl' är nu t.ex. "/MMM-BackgroundSlideshow/cache/12345678-bild.jpg"
+
       const returnPayload = {
-        identifier: self.config.identifier,
+        identifier: this.config.identifier,
         path: image.path,
-        data,
-        index: self.index,
-        total: self.imageList.length
+        url: imageUrl,
+        index: this.index,
+        total: this.imageList.length
       };
-      self.sendSocketNotification(
-        'BACKGROUNDSLIDESHOW_DISPLAY_IMAGE',
+
+      this.sendSocketNotification(
+        'BACKGROUNDSLIDESHOW_IMAGE_URL',
         returnPayload
       );
     });
-
     // (re)set the update timer
     this.startOrRestartTimer();
   	if (this.config.showAllImagesBeforeRestart) {
@@ -382,24 +427,33 @@ module.exports = NodeHelper.create({
       .keepMetadata()
       .jpeg({quality: 80});
 
-    // Streama image data from file to transformation and finally to buffer
-    const ext = path.extname(imagePath).toLowerCase();
-    const outputStream = [];
-    fs.createReadStream(imagePath)
-      .pipe(transformer) // Stream to Sharp för att resizea
-      .on('data', (chunk) => {
-        outputStream.push(chunk); // add chunks in a buffer array
-      })
-      .on('end', () => {
-        Log.log('resizing done! ');
-        const buffer = Buffer.concat(outputStream);
-        Log.log(`buffersize: ${parseInt(buffer.length / 1024, 10)}kB`);
+    const outputFilename = `${Date.now()}-${path.basename(imagePath)}`;
+    const outputPath = path.join(this.cachePath, outputFilename);
 
-        callback(`data:image/${ext.slice(1)};base64, ${buffer.toString('base64')}`);
-      })
-      .on('error', (err) => {
-        Log.error('Error resizing image:', err);
-      });
+    const writeStream = fs.createWriteStream(outputPath);
+    fs.createReadStream(imagePath)
+      .pipe(transformer)
+      .pipe(writeStream);
+
+    writeStream.on('finish', () => {
+      Log.log(`Resizing done! Saved to ${outputPath}`);
+
+      // Skapa URL:en som frontenden kan använda
+      const imageUrl = `/${this.name}/cache/${outputFilename}`;
+      Log.log(`Sending URL to frontend: ${imageUrl}`);
+
+      // Skicka tillbaka URL:en istället för base64-data
+      callback(imageUrl);
+    });
+
+    writeStream.on('error', (err) => {
+      Log.error('Error writing resized image to file:', err);
+    });
+
+    // Hantera fel från sharp också
+    transformer.on('error', (err) => {
+      Log.error('Error resizing image with Sharp:', err);
+    });
   },
 
   readFile (filepath, callback) {
@@ -409,23 +463,17 @@ module.exports = NodeHelper.create({
       this.resizeImage(filepath, callback);
     } else {
       Log.log('resizeImages: false');
-      // const data = fs.readFileSync(filepath, { encoding: 'base64' });
-      // callback(`data:image/${ext};base64, ${data}`);
-      const chunks = [];
-      fs.createReadStream(filepath)
-        .on('data', (chunk) => {
-          chunks.push(chunk); // Samla chunkar av data
-        })
-        .on('end', () => {
-          const buffer = Buffer.concat(chunks);
-          callback(`data:image/${ext.slice(1)};base64, ${buffer.toString('base64')}`);
-        })
-        .on('error', (err) => {
-          Log.error('Error reading file:', err);
-        })
-        .on('close', () => {
-          Log.log('Stream closed.');
-        });
+      const outputFilename = `${Date.now()}-${path.basename(filepath)}`;
+      const outputPath = path.join(this.cachePath, outputFilename);
+
+      fs.copyFile(filepath, outputPath, (err) => {
+        if (err) {
+          Log.error('Error copying file to cache:', err);
+          return;
+        }
+        const imageUrl = `/${this.name}/cache/${outputFilename}`;
+        callback(imageUrl);
+      });
     }
   },
 

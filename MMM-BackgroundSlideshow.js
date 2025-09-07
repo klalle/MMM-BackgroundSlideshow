@@ -210,22 +210,6 @@ Module.register('MMM-BackgroundSlideshow', {
 
     // check this is for this module based on the woeid
     if (notification === 'BACKGROUNDSLIDESHOW_READY') {
-      // // Log.info('Returning Images, payload:' + JSON.stringify(payload));
-      // // set the image list
-      // if (this.savedImages) {
-      //   this.savedImages = payload.imageList;
-      //   this.savedIndex = 0;
-      // } else {
-      //   this.imageList = payload.imageList;
-      //   // if image list actually contains images
-      //   // set loaded flag to true and update dom
-      //   if (this.imageList.length > 0) {
-      //     this.updateImage(); //Added to show the image at least once, but not change it within this.resume()
-      //     if (!this.playingVideo) {
-      //       this.resume();
-      //     }
-      //   }
-      // }
       if (payload.identifier === this.identifier) {
         if (!this.playingVideo) {
           this.resume();
@@ -241,7 +225,7 @@ Module.register('MMM-BackgroundSlideshow', {
       if (!this.playingVideo) {
         this.resume();
       }
-    } else if (notification === 'BACKGROUNDSLIDESHOW_DISPLAY_IMAGE') {
+    } else if (notification === 'BACKGROUNDSLIDESHOW_IMAGE_URL') {
       // check this is for this module based on the woeid
       if (payload.identifier === this.identifier) {
         this.displayImage(payload);
@@ -415,18 +399,25 @@ Module.register('MMM-BackgroundSlideshow', {
   },
   // eslint-disable-next-line max-lines-per-function
   displayImage (imageinfo) {
+    const image = new Image();
     const mwLc = imageinfo.path.toLowerCase();
     if (mwLc.endsWith('.mp4') || mwLc.endsWith('.m4v')) {
       const payload = [imageinfo.path, 'PLAY'];
-      imageinfo.data = 'modules/MMM-BackgroundSlideshow/transparent1080p.png';
+
+      // ÄNDRING HÄR: Sätt bildkällan direkt till en platshållare
+      // istället för att försöka ändra på ett 'data'-fält som inte finns.
+      image.src = 'modules/MMM-BackgroundSlideshow/transparent1080p.png';
+
       this.sendSocketNotification('BACKGROUNDSLIDESHOW_PLAY_VIDEO', payload);
       this.playingVideo = true;
       this.suspend();
     } else {
       this.playingVideo = false;
+
+      image.src = imageinfo.url;
     }
 
-    const image = new Image();
+
     image.onerror = (err) => {
       Log.error('Error loading image:', err);
     };
@@ -620,7 +611,7 @@ Module.register('MMM-BackgroundSlideshow', {
       this.imagesDiv.appendChild(transitionDiv);
     };
 
-    image.src = imageinfo.data;
+    // image.src = imageinfo.data;
     this.sendSocketNotification('BACKGROUNDSLIDESHOW_IMAGE_UPDATED', {
       url: imageinfo.path
     });
